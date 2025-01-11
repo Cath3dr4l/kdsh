@@ -12,8 +12,8 @@ import logging
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import custom utility modules
-from utils.file_parser import FileParser, SubDocumentParser
-from utils.enhance_metadata import MetadataEnhancer
+from utils.file_parser import FileParser
+
 import json
 
 # Configure logging
@@ -22,6 +22,14 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+conference_to_id_map = {
+    "1VU_Np53I7HtC-t3IAzTZQzodXXTgM4cA": "TMLR",
+    "13EITinaXo5Bw06R66HE_CuHohi7lzoWe": "NeurIPS",
+    "1sPkEvh-13LJtzoxGKIcpukDdySLiVkYa": "KDD",
+    "1aslYCqHnOpBTGt6YB0mZJ7wEKJayfIbB": "EMNLP",
+    "1npEk3caORb-tWIdx22EoZ7fxiAPgrem6": "CVPR",
+}
 
 
 class DriveConnector:
@@ -71,8 +79,6 @@ class DriveConnector:
             mode=mode,
             refresh_interval=refresh_interval,
             with_metadata=True,
-            
-            
         )
         return table
 
@@ -90,7 +96,7 @@ class DriveConnector:
         # UDF to extract and process file content with metadata
         @pw.udf
         def get_file_content(metadata, data):
-            file_parser = SubDocumentParser()
+            file_parser = FileParser()
             byte_data = file_parser.parse_to_byte_array(data)
 
             file_name = str(metadata["name"])
@@ -98,26 +104,30 @@ class DriveConnector:
             existing_metadata = str(metadata)
             existing_metadata = json.loads(existing_metadata)
 
-            extracted_text_with_metadata = file_parser.obj_to_text(
-                file_name, byte_data, existing_metadata=existing_metadata
+            extracted_text = file_parser.obj_to_text(
+                file_name=file_name, byte_data=byte_data
             ).encode("utf-8")
 
-            return extracted_text_with_metadata
+            return extracted_text
+
+        # New UDF to modify metadata and add conference information
+        @pw.udf
+        def modify_metadata(metadata):
+            existing_metadata = str(metadata)
+            metadata = json.loads(existing_metadata)
+            conference_id = metadata.get("parents")[0]
+            if conference_id in conference_to_id_map:
+                metadata["conference"] = conference_to_id_map[conference_id]
+            return metadata
 
         # Add processed data column to table
         result_table = self.table.with_columns(
             data=get_file_content(self.table._metadata, self.table.data),
         )
 
-        # UDF to extract metadata from processed data
-        @pw.udf
-        def get_metadata(data):
-            data = data.decode("utf-8")
-            return json.loads(eval(data)[-1])
-
-        # Add metadata column to processed table
-        processed_table = result_table.with_columns(
-            _metadata=get_metadata(result_table.data),
+        # Modify metadata to include conference information
+        result_table = result_table.with_columns(
+            _metadata=modify_metadata(self.table._metadata)
         )
 
-        return processed_table
+        return result_table

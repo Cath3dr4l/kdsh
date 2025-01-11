@@ -13,7 +13,7 @@ from services.drive_connector import DriveConnector
 class Indexer:
     """
     A service that indexes documents from various connectors into a vector database.
-    
+
     Args:
         config (Config): Configuration object containing indexer settings
     """
@@ -31,7 +31,6 @@ class Indexer:
         # Initialize list of document connectors
         self.connectors = [
             DriveConnector(folder_id=config.GDRIVE_LINK),
-
         ]
 
         self.docs = []

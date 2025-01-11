@@ -16,9 +16,13 @@ from pathway.stdlib.indexing.bm25 import TantivyBM25Factory
 from pathway.stdlib.indexing.hybrid_index import HybridIndexFactory
 from pathway.stdlib.indexing.nearest_neighbors import UsearchKnnFactory
 from pathway.xpacks.llm.document_store import DocumentStore
+
+# from pathway.xpacks.llm.splitters import
 from pathway.xpacks.llm.servers import DocumentStoreServer
 from pydantic import InstanceOf
-from utils.custom_splitter import ContextualMetadataSplitter
+
+from utils.custom_splitter import CustomSplitter
+
 from utils.embedding_client import EmbeddingClient
 
 # Configure logging
@@ -27,6 +31,8 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+
 
 
 class DocumentStoreServerWrapper:
@@ -62,7 +68,7 @@ class DocumentStoreServerWrapper:
         )
         self.terminate_on_error: bool = False
         self.embedder = EmbeddingClient(cache_strategy=pw.udfs.DefaultCache())
-        self.splitter = ContextualMetadataSplitter(chunk_overlap=400, chunk_size=4000)
+        self.splitter = CustomSplitter()
 
     def create_server(
         self,
