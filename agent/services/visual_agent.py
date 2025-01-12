@@ -829,7 +829,7 @@ def analyze_results(df: pd.DataFrame) -> None:
         for _, row in failed_cases.iterrows():
             print(f"- {row['paper_id']}: {row['recommendation']}")
 
-def test():
+def test_reference():
     # Configure models
     reasoning_config = ModelConfig(
         provider=ModelProvider.OPENAI,
@@ -994,7 +994,61 @@ def process_single_paper(
             'output_dir': ''
         }
 
+def test_papers():
+    # Configure models
+    reasoning_config = ModelConfig(
+        provider=ModelProvider.OPENAI,
+        model_name="gpt-4o-mini"
+    )
+    
+    critic_config = ModelConfig(
+        provider=ModelProvider.OPENAI,
+        model_name="gpt-4o"
+    )
+
+    print("Configuring evaluator...")
+    evaluator = PaperEvaluator(reasoning_config, critic_config)
+    
+    # Base directory containing the papers
+    base_dir = "/home/divyansh/code/kdsh/dataset"
+    
+    # Create timestamp for output directory
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    analysis_base_dir = f"paper_analyses_{timestamp}"
+    os.makedirs(analysis_base_dir, exist_ok=True)
+    
+    results = []
+    
+    paper_dir = os.path.join(base_dir, "Papers")
+    if os.path.exists(paper_dir):
+        filenames = sorted([f for f in os.listdir(paper_dir) if f.endswith('.pdf')])
+        
+        for filename in filenames[:50]:  # Process the first 50 papers sequentially
+            paper_path = os.path.join(paper_dir, filename)
+            result = process_single_paper(paper_path, False, evaluator, analysis_base_dir)
+            results.append(result)
+            print(f"Completed processing: {filename}")
+    
+    # Convert results to DataFrame and save
+    df = pd.DataFrame(results)
+    csv_path = os.path.join(analysis_base_dir, "evaluation_results.csv")
+    df.to_csv(csv_path, index=False)
+    print(f"\nResults saved to: {csv_path}")
+    
+    # Analyze and print results
+    analyze_results(df)
+
 if __name__ == "__main__":
     # main()
-    test()
-    process_papers_directory("/home/divyansh/code/kdsh/dataset/Reference", PaperEvaluator(reasoning_config, critic_config))
+    # test_reference()
+    test_papers()
+    # reasoning_config = ModelConfig(
+    #     provider=ModelProvider.OPENAI,
+    #     model_name="gpt-4o-mini"
+    # )
+    
+    # critic_config = ModelConfig(
+    #     provider=ModelProvider.OPENAI,
+    #     model_name="gpt-4o"
+    # )
+    # process_papers_directory("/home/divyansh/code/kdsh/dataset/Reference", PaperEvaluator(reasoning_config, critic_config))
