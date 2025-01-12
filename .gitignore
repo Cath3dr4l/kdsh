@@ -1,3 +1,7 @@
 agent/.env
-agent/services/visual_agent.py
 paper_content.txt
+agent/thought_tree*
+agent/paper_analysis*
+agent/paper_analyses*
+agent/services/breakdown_agent.py
+agent/services/agent.py
