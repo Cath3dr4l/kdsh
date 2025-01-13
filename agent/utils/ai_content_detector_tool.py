@@ -1,5 +1,7 @@
 from langchain.tools import BaseTool
 import requests
+import asyncio
+import aiohttp
 
 
 class TextDetectionTool(BaseTool):
@@ -26,9 +28,9 @@ class TextDetectionTool(BaseTool):
         "Sec-Fetch-Site": "same-site",
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
     }
-    max_chunk_size: int = 12000
+    max_chunk_size: int = 6000
 
-    def __init__(self, max_chunk_size=12000):
+    def __init__(self, max_chunk_size=6000):
         super().__init__()
         print(self.api_url)
         # self.api_url = api_url
@@ -41,38 +43,44 @@ class TextDetectionTool(BaseTool):
             text[i : i + max_chunk_size] for i in range(0, len(text), max_chunk_size)
         ]
 
-    def call_api(self, text_chunk):
+    async def call_api_async(self, session, text_chunk):
         """Send a single text chunk to the API and return the response."""
         print("Calling API")
         payload = {"input_text": text_chunk}
         try:
-            response = requests.post(self.api_url, json=payload, headers=self.headers)
-            response.raise_for_status()  # Raise an error for bad responses (4xx and 5xx)
-            return response.json()
-        except requests.exceptions.RequestException as e:
+            async with session.post(self.api_url, json=payload, headers=self.headers) as response:
+                response.raise_for_status()  # Raise an error for bad responses (4xx and 5xx)
+                return await response.json()
+        except aiohttp.ClientError as e:
             print(f"API call failed: {e}")
             return {"error": str(e)}  # Return error message in a structured format
 
     def _run(self, text):
-        """Run the text detection tool on the input text."""
+        return asyncio.run(self._run_async(text))
+    
+    async def _run_async(self, text):
+        """Run the text detection tool on the input text asynchronously."""
         # Split the text into chunks
         text_chunks = self.split_text(text, self.max_chunk_size)
-        text_chunks = text_chunks[:-1]
+        chunks = []
+        for chunk in text_chunks:
+            if len(chunk) > 2000:
+                chunks.append(chunk)
+        text_chunks = chunks
         print([len(chunk) for chunk in text_chunks])
 
-        results = []
-        for chunk in text_chunks:
-            result = self.call_api(chunk)
-
-            results.append(result["data"]["fakePercentage"])
+        async with aiohttp.ClientSession() as session:
+            tasks = [self.call_api_async(session, chunk) for chunk in text_chunks]
+            results = await asyncio.gather(*tasks)
 
         # Aggregate results (e.g., calculate average fake percentage if applicable)
-        valid_results = [r for r in results if r is not None]
+        valid_results = [r["data"]["fakePercentage"] for r in results if "data" in r and "fakePercentage" in r["data"]]
         if valid_results:
             average_fake_percentage = sum(valid_results) / len(valid_results)
             return {
                 "average_fake_percentage": average_fake_percentage,
-                "individual_scores": results,
+                "individual_scores": valid_results,
             }
         else:
             return {"error": "Failed to process text", "individual_scores": results}
+        
