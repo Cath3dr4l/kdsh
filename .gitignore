@@ -5,3 +5,4 @@ agent/paper_analysis*
 agent/paper_analyses*
 agent/services/breakdown_agent.py
 agent/services/agent.py
+agent/single_paper_analysis/

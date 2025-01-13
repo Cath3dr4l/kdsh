@@ -9,12 +9,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pandas as pd
 from typing import List, Dict, Any, Optional, Set
 import csv
+import time
 import json
 from pathlib import Path
 from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
 import textwrap
+import asyncio
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -158,33 +160,42 @@ class ThoughtNode:
 class TreeVisualizer:
     def __init__(self):
         self.G = nx.DiGraph()
-        self.best_path_nodes = set()  # Track nodes in the best path
+        self.best_path_nodes = set()
         
     def add_node(self, node: ThoughtNode, parent_id: Optional[str] = None, is_best_path: bool = False):
         try:
-            # Ensure we have valid content
+            # Ensure we have valid content and node ID
+            if not node or not node.node_id:
+                print(f"Warning: Invalid node or node ID")
+                return
+                
             aspect = str(node.aspect) if node.aspect else "Unknown aspect"
             content = str(node.content) if node.content else "No content"
             
             # Create a readable label with proper truncation
-            content_preview = textwrap.fill(content[:100], width=30)  # Show more content, wrapped
+            content_preview = textwrap.fill(content[:100], width=30)
             label = f"{aspect}\n{content_preview}"
             
-            self.G.add_node(node.node_id, 
-                        label=label,
-                        evaluation=node.evaluation or "Not evaluated",
-                        depth=len(self.get_path_to_root(node.node_id)),
-                        is_best_path=is_best_path)
+            # Add node if it doesn't exist
+            if node.node_id not in self.G:
+                self.G.add_node(node.node_id, 
+                            label=label,
+                            evaluation=node.evaluation or "Not evaluated")
             
+            # Update node attributes
+            self.G.nodes[node.node_id]['is_best_path'] = is_best_path
+            
+            # Add edge if parent exists
             if parent_id:
-                self.G.add_edge(parent_id, node.node_id)
-                
+                if not self.G.has_edge(parent_id, node.node_id):
+                    self.G.add_edge(parent_id, node.node_id)
+                    
             if is_best_path:
                 self.best_path_nodes.add(node.node_id)
                 
         except Exception as e:
             print(f"Error adding node to visualization: {str(e)}")
-            print(f"Node details - aspect: {node.aspect}, content length: {len(node.content) if node.content else 0}")
+            print(f"Node details - ID: {node.node_id}, aspect: {node.aspect}")
     
     def get_path_to_root(self, node_id: str) -> List[str]:
         path = []
@@ -198,43 +209,62 @@ class TreeVisualizer:
         return path
     
     def visualize(self, output_path: str = None):
-
         plt.close('all')
         fig = plt.figure(figsize=(20, 12))
         success = False
         
         try:
             if not self.G.nodes():
-                raise ValueError("No nodes in graph to visualize")
+                print("Warning: No nodes in graph to visualize")
+                return False
             
-            # Use hierarchical layout for top-down tree visualization
-            pos = nx.kamada_kawai_layout(self.G)
+            # Find all nodes and ensure they're connected
+            all_nodes = set(self.G.nodes())
+            print(f"Total nodes in graph: {len(all_nodes)}")
             
-            root = [n for n in self.G.nodes() if not list(self.G.predecessors(n))][0]
+            # Find root(s)
+            roots = [n for n in all_nodes if not list(self.G.predecessors(n))]
+            if not roots:
+                print("Warning: No root node found in graph")
+                return False
             
+            root = roots[0]
+            print(f"Using root node: {root}")
+            
+            # Calculate levels using BFS
             levels = {}
             queue = [(root, 0)]
-            visited = set()
+            visited = {root}  # Track visited nodes
             
             while queue:
                 node, level = queue.pop(0)
-                if node not in visited:
-                    levels[node] = level
-                    visited.add(node)
-                    # Add all successors to queue with incremented level
-                    for successor in self.G.successors(node):
+                levels[node] = level
+                
+                # Add all unvisited successors to queue
+                for successor in self.G.successors(node):
+                    if successor not in visited:
                         queue.append((successor, level + 1))
+                        visited.add(successor)
             
-            # Calculate x coordinates to spread nodes at each level
+            # Handle any disconnected nodes by assigning them to level 0
+            disconnected = all_nodes - visited
+            if disconnected:
+                print(f"Warning: Found {len(disconnected)} disconnected nodes")
+                for node in disconnected:
+                    levels[node] = 0
+            
+            # Calculate x positions for nodes at each level
             x_positions = {}
+            y_positions = {}
             for level in set(levels.values()):
                 nodes_at_level = [n for n, l in levels.items() if l == level]
-                width = len(nodes_at_level) - 1
-                for i, node in enumerate(sorted(nodes_at_level)):
-                    x_positions[node] = (i - width/2) if width > 0 else 0
+                width = len(nodes_at_level)
+                for i, node in enumerate(nodes_at_level):
+                    x_positions[node] = (i - (width - 1) / 2) * 2  # Multiply by 2 for more spacing
+                    y_positions[node] = -level * 2  # Multiply by 2 for more spacing
             
-            # Create positions dictionary with calculated coordinates
-            pos = {node: (x_positions[node], -levels[node]) for node in self.G.nodes()}
+            # Combine positions
+            pos = {node: (x_positions[node], y_positions[node]) for node in all_nodes}
             
             # Draw nodes
             node_colors = ['lightgreen' if node in self.best_path_nodes else 'lightblue' 
@@ -244,7 +274,7 @@ class TreeVisualizer:
                                 node_color=node_colors,
                                 node_size=4000)
             
-            # Draw edges with curved arrows
+            # Draw edges
             nx.draw_networkx_edges(self.G, pos,
                                 edge_color='gray',
                                 arrows=True,
@@ -252,12 +282,11 @@ class TreeVisualizer:
                                 width=2,
                                 connectionstyle="arc3,rad=0.2")
             
-            # Create labels with wrapped text
-            labels = {}
-            for node, data in self.G.nodes(data=True):
-                if 'label' in data:
-                    wrapped_text = textwrap.fill(data['label'], width=30)
-                    labels[node] = wrapped_text
+            # Draw labels
+            labels = {
+                node: self.G.nodes[node].get('label', '')
+                for node in self.G.nodes()
+            }
             
             nx.draw_networkx_labels(self.G, pos,
                                 labels=labels,
@@ -268,14 +297,16 @@ class TreeVisualizer:
                     fontsize=14,
                     pad=20)
             
-            legend_elements = [plt.Line2D([0], [0], marker='o', color='w',
-                                        markerfacecolor='lightgreen',
-                                        markersize=15,
-                                        label='Best Path'),
-                            plt.Line2D([0], [0], marker='o', color='w',
-                                        markerfacecolor='lightblue',
-                                        markersize=15,
-                                        label='Alternative Thoughts')]
+            legend_elements = [
+                plt.Line2D([0], [0], marker='o', color='w',
+                        markerfacecolor='lightgreen',
+                        markersize=15,
+                        label='Best Path'),
+                plt.Line2D([0], [0], marker='o', color='w',
+                        markerfacecolor='lightblue',
+                        markersize=15,
+                        label='Alternative Thoughts')
+            ]
             plt.legend(handles=legend_elements,
                     loc='upper right',
                     fontsize=10)
@@ -283,25 +314,24 @@ class TreeVisualizer:
             plt.tight_layout()
             
             if output_path:
-                # Ensure directory exists
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                print(f"Saving visualization to {output_path}")
                 plt.savefig(output_path,
                         bbox_inches='tight',
                         dpi=300,
                         format='png')
-                
-                # Verify file was actually saved
-                if os.path.exists(output_path):
-                    success = True
-                else:
+                success = os.path.exists(output_path)
+                if not success:
                     print(f"Error: Failed to save visualization to {output_path}")
             else:
-                success = True  # If no output path was specified, consider it successful
+                success = True
             
             return success
             
         except Exception as e:
             print(f"Error in visualization: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return False
             
         finally:
@@ -317,8 +347,92 @@ class TreeOfThoughts:
         self.max_depth = max_depth
         self.visualizer = TreeVisualizer()
         self.all_thoughts: Dict[str, ThoughtNode] = {}
-        self.best_path_ids = set()  # Track IDs of nodes in best path
+        self.best_path_ids = set()
+
+    async def generate_thoughts(self, context: str, current_path: List[ThoughtNode], regenerate: bool = False) -> List[ThoughtNode]:
+        prompt = self._create_reasoning_prompt(context, current_path, regenerate)
+        response = await self.reasoning_llm.ainvoke(prompt)
         
+        parent_node = current_path[-1] if current_path else None
+        thoughts = []
+        
+        for thought in response.thoughts[:self.max_branches]:
+            node = ThoughtNode(
+                content=thought,
+                aspect=response.next_aspect,
+                node_id=str(uuid.uuid4())
+            )
+            if parent_node:
+                node.parent_id = parent_node.node_id
+                parent_node.children.append(node)
+                
+            self.all_thoughts[node.node_id] = node
+            self.visualizer.add_node(node, parent_node.node_id if parent_node else None)
+            thoughts.append(node)
+        
+        return thoughts
+
+    async def evaluate_level(self, paths: List[List[ThoughtNode]], paper_content: str) -> Optional[PathEvaluation]:
+        if not paths:
+            return None
+        
+        max_retries = 3
+        retries = 0
+        
+        while retries < max_retries:
+            try:
+                prompt = self._create_critic_prompt(paths, paper_content)
+                evaluation = await self.critic_llm.ainvoke(prompt)
+                
+                if not evaluation or not isinstance(evaluation, PathEvaluation):
+                    print("Warning: Invalid evaluation response from critic LLM")
+                    retries += 1
+                    if retries < max_retries:
+                        print(f"Retrying evaluation (attempt {retries + 1}/{max_retries})...")
+                        continue
+                    raise ValueError("Failed to get valid evaluation from critic LLM after maximum retries")
+                
+                if not evaluation.best_path or not evaluation.pruned_paths:
+                    print("Warning: Missing required fields in evaluation")
+                    retries += 1
+                    if retries < max_retries:
+                        print(f"Retrying evaluation (attempt {retries + 1}/{max_retries})...")
+                        continue
+                    raise ValueError("Failed to get complete evaluation fields after maximum retries")
+                
+                for path in paths:
+                    node = path[-1]
+                    if node.node_id == evaluation.best_path:
+                        node.evaluation = "best"
+                    elif node.node_id in evaluation.pruned_paths:
+                        node.evaluation = "pruned"
+                    elif node.node_id in evaluation.neutral_paths:
+                        node.evaluation = "neutral"
+                    else:
+                        node.evaluation = "unknown"
+                        
+                return evaluation
+                
+            except Exception as e:
+                print(f"Error in evaluate_level: {str(e)}")
+                retries += 1
+                if retries < max_retries:
+                    print(f"Retrying evaluation (attempt {retries + 1}/{max_retries})...")
+                    continue
+                raise
+
+    def mark_best_path(self, path: List[ThoughtNode]):
+        """Mark nodes that are part of the best reasoning path"""
+        self.best_path_ids = {node.node_id for node in path}
+        
+        # Update visualization
+        for node_id in self.all_thoughts:
+            self.visualizer.add_node(
+                self.all_thoughts[node_id],
+                self.all_thoughts[node_id].parent_id,
+                is_best_path=(node_id in self.best_path_ids)
+            )
+
     def _create_reasoning_prompt(self, context: str, current_path: List[ThoughtNode], regenerate: bool = False) -> str:
         path_summary = "\n".join([
             f"- Analyzing {node.aspect}: {node.content}" 
@@ -335,7 +449,9 @@ class TreeOfThoughts:
     Paper excerpt:
     {context}
 
-    Based on the previous analysis (if any), YOUR TASK is TO PROVIDE {self.max_branches} DISTINCT reasoning thoughts about different aspects of the paper's publishability. Each thought should be thorough, well-supported, and explore a new dimension or deepen previous analysis.
+    Based on the previous analysis (if any), YOUR TASK is TO PROVIDE {self.max_branches} DISTINCT reasoning thoughts about different aspects of the paper's publishability. Each thought should be thorough, well-supported, AND explore new dimensions or deepen previous analysis.
+
+    NOTE: you may not have memory of it, but you have already undergone the task of generating rich thoughts which, on analysis by an expert determine if the paper deems to be publishable or not. However you werent correct in your thought generation and have been given a final chance, so work well else, I may be fired from my job. So, ensure critically ahdering to all the crieterion given and generate, rich, detailed, diverse thoughts that deeply underrstand multiple aspects of the paper. Weighed on your thoughts' observations and intuitions about the different aspects of the given paper, the user will determine if your thinking indicates it might be publishable or non-publishable, hence ensure rich and critically thought out thoughts. 
 
     For potentially unpublishable papers, examine:
     - Logical inconsistencies and contradictions in methodology or results
@@ -500,97 +616,6 @@ These proportions are strict requirements - exactly one best, {num_to_prune} pru
 ENSURE TO ADHERE TO THE GIVEN STRUCTURED OUTPUT FORMAT AS YOUR RESPONSE
 """
 
-    def generate_thoughts(self, context: str, current_path: List[ThoughtNode], regenerate: bool = False) -> List[ThoughtNode]:
-        
-        prompt = self._create_reasoning_prompt(context, current_path, regenerate)
-        response = self.reasoning_llm.invoke(prompt)
-        
-        parent_node = current_path[-1] if current_path else None
-        
-        thoughts = []
-        for thought in response.thoughts[:self.max_branches]:
-            node = ThoughtNode(
-                content=thought,
-                aspect=response.next_aspect,
-                node_id=str(uuid.uuid4())
-            )
-            if parent_node:
-                node.parent_id = parent_node.node_id
-                parent_node.children.append(node)
-                
-            # Ensure proper tracking
-            self.all_thoughts[node.node_id] = node
-            self.visualizer.add_node(node, parent_node.node_id if parent_node else None)
-            thoughts.append(node)
-        
-        return thoughts
-    
-    def mark_best_path(self, path: List[ThoughtNode]):
-        """Mark nodes that are part of the best reasoning path"""
-        self.best_path_ids = {node.node_id for node in path}
-        
-        # Update visualization
-        for node_id in self.all_thoughts:
-            self.visualizer.add_node(
-                self.all_thoughts[node_id],
-                self.all_thoughts[node_id].parent_id,
-                is_best_path=(node_id in self.best_path_ids)
-            )
-
-    
-    def evaluate_level(self, paths: List[List[ThoughtNode]], paper_content: str) -> Optional[PathEvaluation]:
-        """Evaluate all paths at current depth and update their evaluations."""
-        if not paths:
-            return None
-        
-        max_retries = 3
-        retries = 0
-        
-        while retries < max_retries:
-            try:
-                prompt = self._create_critic_prompt(paths, paper_content)
-                evaluation = self.critic_llm.invoke(prompt)
-                
-                # Validate evaluation response
-                if not evaluation or not isinstance(evaluation, PathEvaluation):
-                    print("Warning: Invalid evaluation response from critic LLM")
-                    retries += 1
-                    if retries < max_retries:
-                        print(f"Retrying evaluation (attempt {retries + 1}/{max_retries})...")
-                        continue
-                    raise ValueError("Failed to get valid evaluation from critic LLM after maximum retries")
-                
-                # Validate required fields
-                if not evaluation.best_path or not evaluation.pruned_paths:
-                    print("Warning: Missing required fields in evaluation")
-                    retries += 1
-                    if retries < max_retries:
-                        print(f"Retrying evaluation (attempt {retries + 1}/{max_retries})...")
-                        continue
-                    raise ValueError("Failed to get complete evaluation fields after maximum retries")
-                
-                # Update node evaluations with categories
-                for path in paths:
-                    node = path[-1]
-                    if node.node_id == evaluation.best_path:
-                        node.evaluation = "best"
-                    elif node.node_id in evaluation.pruned_paths:
-                        node.evaluation = "pruned"
-                    elif node.node_id in evaluation.neutral_paths:
-                        node.evaluation = "neutral"
-                    else:
-                        node.evaluation = "unknown"
-                        
-                return evaluation
-                
-            except Exception as e:
-                print(f"Error in evaluate_level: {str(e)}")
-                retries += 1
-                if retries < max_retries:
-                    print(f"Retrying evaluation (attempt {retries + 1}/{max_retries})...")
-                    continue
-                raise  # Re-raise the exception after max retries
-
 
 
 class PaperEvaluator:
@@ -600,10 +625,10 @@ class PaperEvaluator:
         
         self.tot = TreeOfThoughts(reasoning_llm, critic_llm)
         self.decision_llm = critic_llm.with_structured_output(PublishabilityDecision)
-        
-    def evaluate_paper(self, content: str, regenerate: bool = False) -> PublishabilityDecision:
+
+    async def evaluate_paper(self, content: str, regenerate: bool = False) -> PublishabilityDecision:
         root_node = ThoughtNode(content="root", aspect="initial")
-        paths_by_depth: Dict[int, List[List[ThoughtNode]]] = {0: [[root_node]]}  # Start with root
+        paths_by_depth: Dict[int, List[List[ThoughtNode]]] = {0: [[root_node]]}
         valid_nodes: Set[str] = {root_node.node_id}
         
         best_path = None
@@ -612,9 +637,17 @@ class PaperEvaluator:
         for depth in range(self.tot.max_depth):
             current_level_paths = []
             
+            # Create tasks for parallel thought generation
+            thought_tasks = []
             for path in paths_by_depth[depth]:
                 if path[-1].node_id in valid_nodes:
-                    thoughts = self.tot.generate_thoughts(content, path, regenerate)
+                    task = self.tot.generate_thoughts(content, path, regenerate)
+                    thought_tasks.append((path, task))
+            
+            # Execute thought generation tasks in parallel
+            if thought_tasks:
+                results = await asyncio.gather(*(task for _, task in thought_tasks))
+                for (path, _), thoughts in zip(thought_tasks, results):
                     for thought in thoughts:
                         new_path = path + [thought]
                         current_level_paths.append(new_path)
@@ -622,33 +655,31 @@ class PaperEvaluator:
             if not current_level_paths:
                 break
                     
-            evaluation = self.tot.evaluate_level(current_level_paths, content)
+            evaluation = await self.tot.evaluate_level(current_level_paths, content)
             
             if evaluation:
                 valid_nodes = {evaluation.best_path} | set(evaluation.neutral_paths)
                 paths_by_depth[depth + 1] = [p for p in current_level_paths 
                                         if p[-1].node_id in valid_nodes]
                 
-                # Track best path
                 best_path = next(p for p in current_level_paths 
                             if p[-1].node_id == evaluation.best_path)
                 final_evaluation = evaluation
         
         if best_path and final_evaluation:
             self.tot.mark_best_path(best_path)
-            return self._make_final_decision(best_path, final_evaluation)
+            return await self._make_final_decision(best_path, final_evaluation)
         
         raise ValueError("Failed to complete evaluation")
-    
-    def _make_final_decision(
+
+    async def _make_final_decision(
         self,
         path: List[ThoughtNode],
         evaluation: PathEvaluation
     ) -> PublishabilityDecision:
-        """Make final publishability decision based on best path."""
         path_content = "\n".join([
             f"Analysis of {node.aspect}:\n{node.content}\n"
-            for node in path if node.content != "root"  # Skip root node
+            for node in path if node.content != "root"
         ])
         
         prompt = f"""Based on this complete analysis path and its evaluation:
@@ -659,7 +690,7 @@ class PaperEvaluator:
     Make a final decision about the paper's publishability. Consider all aspects analyzed
     and provide concrete recommendations for improvement or acceptance.
     """
-        final_decision = self.decision_llm.invoke(prompt)
+        final_decision = await self.decision_llm.ainvoke(prompt)
 
         print("=======")
         print(f"Critic's evaluation rationale: {evaluation.rationale}")
@@ -708,10 +739,10 @@ def extract_pdf_content(pdf_path: str) -> str:
 
 
 
-def check_content(content):
+async def check_content(content):
     detector = checker()
     print(f"Checking content of {content[:50]}...")
-    results = detector._run(content)
+    results = await detector._run_async(content)  # Assuming _run_async exists
     return results
 
 class PaperEvaluationPipeline:
@@ -720,63 +751,43 @@ class PaperEvaluationPipeline:
         self.evaluator = evaluator
         self.results = []
         
-    def run(self) -> pd.DataFrame:
+    async def run(self) -> pd.DataFrame:
         """Run the evaluation pipeline based on configured mode"""
         self.config.output_dir.mkdir(parents=True, exist_ok=True)
         
         if self.config.mode == EvaluationMode.SINGLE_PAPER:
-            result = self._evaluate_single_paper(self.config.input_path)
+            result = await self._evaluate_single_paper(self.config.input_path)
             self.results.append(result)
             
         elif self.config.mode == EvaluationMode.REFERENCE_SET:
-            self._evaluate_reference_set()
+            await self._evaluate_reference_set()
             
         elif self.config.mode == EvaluationMode.TEST_SET:
-            self._evaluate_test_set()
+            await self._evaluate_test_set()
             
-        # Convert results to DataFrame
         df = pd.DataFrame(self.results)
-        
-        # Save results
         self._save_results(df)
-        
-        # Analyze results
         self._analyze_results(df)
         
         return df
-    
-    def _evaluate_single_paper(self, paper_path: Path) -> Dict[str, Any]:
-        """Evaluate a single paper with re-evaluation logic"""
-        try:
-            # Extract content
-            content = extract_pdf_content(str(paper_path))
-            
-            # Check AI content percentage
-            ai_percentage = check_content(content)
-            
-            # Initial evaluation
-            decision = self.evaluator.evaluate_paper(content)
 
-            print("Threshold: ", self.config.ai_content_threshold)
-            print("AI Percentage: ", ai_percentage)
-            print("Decision: ", decision.is_publishable)
-            print("re-evaluate (>): ", ai_percentage["average_fake_percentage"] > self.config.ai_content_threshold)
-            print("re-evaluate (decision): ", decision.is_publishable)
-            print("re-evaluate (and): ", ai_percentage['average_fake_percentage'] > self.config.ai_content_threshold and decision.is_publishable)
+    async def _evaluate_single_paper(self, paper_path: Path) -> Dict[str, Any]:
+        try:
+            content = extract_pdf_content(str(paper_path))
+            ai_percentage = await check_content(content)
             
-            # Re-evaluate if necessary
+            decision = await self.evaluator.evaluate_paper(content)
+            
             if (ai_percentage["average_fake_percentage"] > self.config.ai_content_threshold) and decision.is_publishable:
                 print(f"High AI content detected ({ai_percentage}%). Re-evaluating...")
-                decision = self.evaluator.evaluate_paper(content, regenerate=True)
+                decision = await self.evaluator.evaluate_paper(content, regenerate=True)
             
-            # Save visualization
             paper_output_dir = self.config.output_dir / paper_path.stem
             paper_output_dir.mkdir(parents=True, exist_ok=True)
             
             viz_path = paper_output_dir / f"{paper_path.stem}_thought_tree.png"
             self.evaluator.tot.visualizer.visualize(str(viz_path))
             
-            # Create result dictionary
             result = {
                 'paper_id': paper_path.stem,
                 'predicted_label': decision.is_publishable,
@@ -788,7 +799,6 @@ class PaperEvaluationPipeline:
                 'ai_content_percentage': ai_percentage
             }
             
-            # Save detailed analysis
             self._save_paper_analysis(paper_output_dir, result, decision)
             
             return result
@@ -806,13 +816,13 @@ class PaperEvaluationPipeline:
                 'ai_content_percentage': None
             }
     
-    def _evaluate_reference_set(self):
+    async def _evaluate_reference_set(self):
         """Evaluate papers in reference set structure"""
         # Process Non-Publishable papers
         non_pub_dir = self.config.input_path / "Non-Publishable"
         if non_pub_dir.exists():
             for paper_path in non_pub_dir.glob("*.pdf"):
-                result = self._evaluate_single_paper(paper_path)
+                result = await self._evaluate_single_paper(paper_path)  # Add await
                 result['true_label'] = False
                 result['conference'] = 'Non-Publishable'
                 result['correct_prediction'] = result['predicted_label'] == False
@@ -824,13 +834,13 @@ class PaperEvaluationPipeline:
             for conf_dir in pub_dir.iterdir():
                 if conf_dir.is_dir():
                     for paper_path in conf_dir.glob("*.pdf"):
-                        result = self._evaluate_single_paper(paper_path)
+                        result = await self._evaluate_single_paper(paper_path)  # Add await
                         result['true_label'] = True
                         result['conference'] = conf_dir.name
                         result['correct_prediction'] = result['predicted_label'] == True
                         self.results.append(result)
-    
-    def _evaluate_test_set(self):
+
+    async def _evaluate_test_set(self):
         """Evaluate papers in test set"""
         if not self.config.input_path.exists():
             raise ValueError(f"Test directory does not exist: {self.config.input_path}")
@@ -841,7 +851,7 @@ class PaperEvaluationPipeline:
             paper_paths = paper_paths[:self.config.max_papers]
             
         for paper_path in paper_paths:
-            result = self._evaluate_single_paper(paper_path)
+            result = await self._evaluate_single_paper(paper_path)  # Add await
             self.results.append(result)
     
     def _save_paper_analysis(self, output_dir: Path, result: Dict[str, Any], decision: PublishabilityDecision):
@@ -940,8 +950,9 @@ class PaperEvaluationPipeline:
                 print(f"- {row['paper_id']}: {row['recommendation']}")
 
 
-def main():
-    # Configure models
+async def main():
+
+    start = time.time()
     reasoning_config = ModelConfig(
         provider=ModelProvider.OPENAI,
         model_name="gpt-4o-mini"
@@ -952,14 +963,12 @@ def main():
         model_name="gpt-4o"
     )
     
-    # Create evaluator
     evaluator = PaperEvaluator(reasoning_config, critic_config)
     
-    # Example usage for different modes:
-    
+        
     # 1. Single paper evaluation
     config = EvaluationConfig.create_single_paper_config(
-        paper_path="/home/divyansh/code/kdsh/dataset/Reference/Non-Publishable/R005.pdf",
+        paper_path="/home/divyansh/code/kdsh/dataset/Papers/P013.pdf",
         output_dir="single_paper_analysis"
     )
     
@@ -978,7 +987,10 @@ def main():
     
     # Run evaluation pipeline
     pipeline = PaperEvaluationPipeline(config, evaluator)
-    results_df = pipeline.run()
+
+    results_df = await pipeline.run()
+    end = time.time()
+    print(f"Total time taken: {end - start:.2f} seconds")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
