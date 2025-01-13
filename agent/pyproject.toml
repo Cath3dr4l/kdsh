@@ -1,34 +1,34 @@
-[project]
+[tool.poetry]
 name = "agent"
 version = "0.1.0"
 description = ""
-authors = [
-    {name = "Divyansh-Sharma-81",email = "div.sh81@gmail.com"}
-]
+authors = ["Divyansh-Sharma-81 <div.sh81@gmail.com>"]
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
-dependencies = [
-    "langchain (>=0.3.14,<0.4.0)",
-    "langgraph (>=0.2.61,<0.3.0)",
-    "langchain-ollama (>=0.2.2,<0.3.0)",
-    "langchain-openai (>=0.2.14,<0.3.0)",
-    "langchain-google-genai (>=2.0.8,<3.0.0)",
-    "langchain-groq (>=0.2.3,<0.3.0)",
-    "pydantic (>=2.9.2,<2.10.0)",
-    "python-dotenv (>=1.0.1,<2.0.0)",
-    "langchain-unstructured (>=0.1.6,<0.2.0)",
-    "unstructured-client (>=0.28.1,<0.29.0)",
-    "langchain-community (>=0.3.14,<0.4.0)",
-    "unstructured (>=0.16.12,<0.17.0)",
-    "pdfminer-six (>=20240706,<20240707)",
-    "pi-heif (>=0.21.0,<0.22.0)",
-    "unstructured-inference (>=0.8.1,<0.9.0)",
-    "unstructured-pytesseract (>=0.3.13,<0.4.0)",
-    "networkx (>=3.4.2,<4.0.0)",
-    "matplotlib (>=3.10.0,<4.0.0)",
-]
+packages = [{include = "agent"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.13"
+langchain = ">=0.3.14,<0.4.0"
+langgraph = ">=0.2.61,<0.3.0"
+langchain-ollama = ">=0.2.2,<0.3.0"
+langchain-openai = ">=0.2.14,<0.3.0"
+langchain-google-genai = ">=2.0.8,<3.0.0"
+langchain-groq = ">=0.2.3,<0.3.0"
+pydantic = ">=2.9.2,<2.10.0"
+python-dotenv = ">=1.0.1,<2.0.0"
+langchain-unstructured = ">=0.1.6,<0.2.0"
+unstructured-client = ">=0.28.1,<0.29.0"
+langchain-community = ">=0.3.14,<0.4.0"
+unstructured = ">=0.16.12,<0.17.0"
+pdfminer-six = ">=20240706,<20240707"
+pi-heif = ">=0.21.0,<0.22.0"
+unstructured-inference = ">=0.8.1,<0.9.0"
+unstructured-pytesseract = ">=0.3.13,<0.4.0"
+networkx = ">=3.4.2,<4.0.0"
+matplotlib = ">=3.10.0,<4.0.0"
+pypdf2 = "^3.0.1"
 
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
