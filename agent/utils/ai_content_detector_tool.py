@@ -77,10 +77,12 @@ class TextDetectionTool(BaseTool):
         valid_results = [r["data"]["fakePercentage"] for r in results if "data" in r and "fakePercentage" in r["data"]]
         if valid_results:
             average_fake_percentage = sum(valid_results) / len(valid_results)
-            return {
+            result = {
                 "average_fake_percentage": average_fake_percentage,
                 "individual_scores": valid_results,
             }
+            print(result)
+            return result
         else:
             return {"error": "Failed to process text", "individual_scores": results}
         
