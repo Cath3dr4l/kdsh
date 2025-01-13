@@ -1,0 +1,18 @@
+Paper Analysis Summary
+===================
+
+Paper: /home/divyansh/code/kdsh/dataset/Papers/P036.pdf
+Analysis Date: 2025-01-13 19:14:30
+Publishable: False
+AI Content Percentage: {'average_fake_percentage': 65.32363636363635, 'individual_scores': [28.74, 0.0, 99.56, 100.0, 19.65, 93.98, 74.25, 35.19, 100.0, 67.19, 100.0]}%
+
+Key Strengths:
+
+Critical Weaknesses:
+- Lack of scientific grounding in claims.
+- Absence of empirical evidence and supporting data.
+- Fantastical assertions that undermine credibility.
+- Failure to adhere to principles of scientific inquiry and evidence-based reasoning.
+
+Recommendation:
+The paper is not publishable in its current form due to its lack of scientific rigor and grounding. To improve, the authors should focus on developing a coherent and scientifically valid hypothesis, supported by empirical evidence and a robust experimental design. The fantastical claims should be either substantiated with credible data or removed entirely. The paper should adhere to established scientific principles and provide a clear, logical argument that contributes meaningfully to the field of gravitational research.

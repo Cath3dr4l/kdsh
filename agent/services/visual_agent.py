@@ -848,7 +848,7 @@ class PaperEvaluationPipeline:
         paper_paths = sorted(list(self.config.input_path.glob("*.pdf")))
         
         if self.config.max_papers:
-            paper_paths = paper_paths[:self.config.max_papers]
+            paper_paths = paper_paths[50:self.config.max_papers]
             
         for paper_path in paper_paths:
             result = await self._evaluate_single_paper(paper_path)  # Add await
@@ -952,7 +952,6 @@ class PaperEvaluationPipeline:
 
 async def main():
 
-    start = time.time()
     reasoning_config = ModelConfig(
         provider=ModelProvider.OPENAI,
         model_name="gpt-4o-mini"
@@ -965,12 +964,11 @@ async def main():
     
     evaluator = PaperEvaluator(reasoning_config, critic_config)
     
-        
     # 1. Single paper evaluation
-    config = EvaluationConfig.create_single_paper_config(
-        paper_path="/home/divyansh/code/kdsh/dataset/Papers/P013.pdf",
-        output_dir="single_paper_analysis"
-    )
+    # config = EvaluationConfig.create_single_paper_config(
+    #     paper_path="/home/divyansh/code/kdsh/dataset/Papers/P026.pdf",
+    #     output_dir="single_paper_analysis"
+    # )
     
     # 2. Reference set evaluation
     # config = EvaluationConfig.create_reference_config(
@@ -979,18 +977,16 @@ async def main():
     # )
     
     # # 3. Test set evaluation
-    # config = EvaluationConfig.create_test_config(
-    #     test_dir="/path/to/test/papers",
-    #     output_dir="test_analysis",
-    #     max_papers=50
-    # )
+    config = EvaluationConfig.create_test_config(
+        test_dir="/home/divyansh/code/kdsh/dataset/Papers",
+        output_dir="test_analysis",
+        max_papers=135
+    )
     
     # Run evaluation pipeline
     pipeline = PaperEvaluationPipeline(config, evaluator)
 
     results_df = await pipeline.run()
-    end = time.time()
-    print(f"Total time taken: {end - start:.2f} seconds")
 
 if __name__ == "__main__":
     asyncio.run(main())
