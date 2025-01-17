@@ -964,19 +964,7 @@ async def main():
     
     evaluator = PaperEvaluator(reasoning_config, critic_config)
     
-    # 1. Single paper evaluation
-    # config = EvaluationConfig.create_single_paper_config(
-    #     paper_path="/home/divyansh/code/kdsh/dataset/Papers/P026.pdf",
-    #     output_dir="single_paper_analysis"
-    # )
-    
-    # 2. Reference set evaluation
-    # config = EvaluationConfig.create_reference_config(
-    #     reference_dir="/path/to/reference",
-    #     output_dir="reference_analysis"
-    # )
-    
-    # # 3. Test set evaluation
+
     config = EvaluationConfig.create_test_config(
         test_dir="/home/divyansh/code/kdsh/dataset/Papers",
         output_dir="test_analysis",

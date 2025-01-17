@@ -6,11 +6,43 @@ import os
 from typing import List, Dict, Any, Optional, Set
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_openai import ChatOpenAI
+import PyPDF2
+import asyncio
+import re
+from pydantic import BaseModel, Field
+
+
+def output_to_json(output: str) -> dict:
+
+    # Extract the conference and rationale using regex
+    conference_match = re.search(
+        r"<conference>\s*(.*?)\s*</conference>", output, re.IGNORECASE
+    )
+    rationale_match = re.search(
+        r"<rationale>\s*(.*?)\s*</rationale>", output, re.IGNORECASE
+    )
+
+    # Get the matched text or set as None if not found
+    conference = conference_match.group(1).strip() if conference_match else None
+    rationale = rationale_match.group(1).strip() if rationale_match else None
+
+    # Create a dictionary
+    result = {"conference": conference, "rationale": rationale}
+
+    return result
+
+
+class LLMBasedClassifierOutput(BaseModel):
+    conference: str = Field(..., title="Conference Name")
+    rationale: str = Field(..., title="Rationale for Classification about 100 words")
+    thought_process: List[str] = Field(..., title="Thoughts")
 
 
 class LLMBasedClassifier:
     def __init__(self):
-        self.model = ChatOpenAI(model="gpt-4o", temperature=0, max_retries=3)
+        self.model = ChatOpenAI(
+            model="gpt-4o", temperature=0, max_retries=3
+        ).with_structured_output(LLMBasedClassifierOutput)
 
     def get_sys_prompt(self):
         sys_prompt_actor = """
@@ -142,6 +174,11 @@ class LLMBasedClassifier:
       2. Clear reasoning for weighing different factors
       3. Specific examples from the paper supporting classification
       4. Analysis of potential alternative venues
+      
+      
+      Ensure to adhere to the structured output
+
+        
       """
         return sys_prompt_actor
 
@@ -151,6 +188,8 @@ class LLMBasedClassifier:
             Think step by step, building up on your reasonings and ending up concluding with the mmost appropriate conference for the paper.
             Speak out your thinking and reasonings as you go through and think about various parts of the paper. Ensure thoughtts are rich, diverse, non-repetitive and after multiple thoughts(minimum 10 and upto 25 thoughts), you conclude withtthe final result as a one word answer which is the conference name. ENsure rich and critically thought out decisions
             You mmust crtique your previous thoughts, anticipate some futher reasonings to explore in later thoughts, contrast with other thoughts, and hence overall, have a cohesive and good thought process to come to a final well-reasoned conclusion.
+
+            
 
             Here is the paper's content:
             {content}
@@ -166,49 +205,114 @@ class LLMBasedClassifier:
                 HumanMessage(content=actor_prompt),
             ]
         )
-        return response.content
+        return response
+        # return output_to_json(response.content)
 
 
 if __name__ == "__main__":
-    classifier = LLMBasedClassifier()
-    content = """
-      E!icient Mixture of Experts based on Large Language Models for
-      Low-Resource Data Preprocessing
-      Mengyi Yan
-      yanmy@act.buaa.edu.cn
-      Beihang University, Beijing, China
-      Yaoshu Wang∗
-      yaoshuw@sics.ac.cn
-      Shenzhen Institute of Computing
-      Sciences, Shenzhen, China
-      Kehan Pang
-      pangkehan@buaa.edu.cn
-      Beihang University, Beijing, China
-      Min Xie
-      xiemin@sics.ac.cn
-      Shenzhen Institute of Computing
-      Sciences, Shenzhen, China
-      Jianxin Li∗
-      lijx@buaa.edu.cn
-      Beihang University, Beijing, China
-      ABSTRACT
-      Data preprocessing (DP) that transforms erroneous and raw data to
-      a clean version is a cornerstone of the data mining pipeline. Due to
-      the diverse requirements of downstream tasks, data scientists and
-      domain experts have to handcraft domain-speci!c rules or train ML
-      models with annotated examples, which is costly/time-consuming.
-      In this paper, we present MELD (Mixture of Experts on Large Language Models for Data Preprocessing), a universal solver for lowresource DP. MELD adopts a Mixture-of-Experts (MoE) architecture
-      that enables the amalgamation and enhancement of domain-speci!c
-      experts trained on limited annotated examples. To!ne-tune MELD,
-      we develop a suite of expert-tuning and MoE-tuning techniques, including a retrieval augmented generation (RAG) system, meta-path
-      search for data augmentation, expert re!nement and router network training based on information bottleneck. To further verify the
-      e"ectiveness of MELD, we theoretically prove that MoE in MELD
-      is superior than a single expert and the router network is able to
-      dispatch data to the right experts. Finally, we conducted extensive
-      experiments on 19 datasets over 10 DP tasks to show that MELD
-      outperforms the state-of-the-art methods in both e"ectiveness and
-      e#ciency. More importantly, MELD is able to be! ne-tuned in a lowresource environment, e.g., a local, single and low-priced 3090 GPU.
-      The codes, datasets and full version of the paper are available [1].
-    """
-    result = classifier.classify(content)
-    print(result)
+
+    mosambi = LLMBasedClassifier()
+
+    # Directory containing the PDF files
+    pdf_dir = "../dataset/Papers"
+
+    # List to store the content of the first 50 PDFs
+    pdf_contents = []
+
+    import csv
+
+    # Read the output.csv file to get the PDF names and publishable status
+    csv_file = "output.csv"
+    with open(csv_file, mode="r") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            pdf_file = f"{row['id']}.pdf"
+            pdf_path = os.path.join(pdf_dir, pdf_file)
+            if os.path.exists(pdf_path):
+                print(f"Processing: {pdf_path}")
+                with open(pdf_path, "rb") as pdf_file:
+                    reader = PyPDF2.PdfReader(pdf_file)
+                    content = ""
+                    for page_num in range(len(reader.pages)):
+                        page = reader.pages[page_num]
+                        content += page.extract_text()
+                    pdf_contents.append(
+                        {
+                            "file": row["id"],
+                            "content": content,
+                            "publishable": row["publishable"],
+                        }
+                    )
+
+    print(f"Total PDFs processed: {len(pdf_contents)}")
+
+    # Classify the content of all the PDFs
+    results = []
+    for pdf in pdf_contents:
+        if pdf["publishable"] == "True" or pdf["publishable"] == True:
+            result = asyncio.run(mosambi.classify(pdf["content"]))
+            new_res = {
+                "file": pdf["file"],
+                "publishable": pdf["publishable"],
+                "conference": result.conference,
+                "rationale": result.rationale,
+            }
+        else:
+            new_res = {
+                "file": pdf["file"],
+                "publishable": pdf["publishable"],
+                "conference": "na",
+                "rationale": "na",
+            }
+
+        results.append(new_res)
+        # Save the classification results to a csv file
+        import pandas as pd
+
+        results_df = pd.DataFrame(results)
+        results_df.to_csv("classification_results_2.csv", index=False)
+
+
+# if __name__ == "__main__":
+#     classifier = LLMBasedClassifier()
+#     content = """
+#       E!icient Mixture of Experts based on Large Language Models for
+#       Low-Resource Data Preprocessing
+#       Mengyi Yan
+#       yanmy@act.buaa.edu.cn
+#       Beihang University, Beijing, China
+#       Yaoshu Wang∗
+#       yaoshuw@sics.ac.cn
+#       Shenzhen Institute of Computing
+#       Sciences, Shenzhen, China
+#       Kehan Pang
+#       pangkehan@buaa.edu.cn
+#       Beihang University, Beijing, China
+#       Min Xie
+#       xiemin@sics.ac.cn
+#       Shenzhen Institute of Computing
+#       Sciences, Shenzhen, China
+#       Jianxin Li∗
+#       lijx@buaa.edu.cn
+#       Beihang University, Beijing, China
+#       ABSTRACT
+#       Data preprocessing (DP) that transforms erroneous and raw data to
+#       a clean version is a cornerstone of the data mining pipeline. Due to
+#       the diverse requirements of downstream tasks, data scientists and
+#       domain experts have to handcraft domain-speci!c rules or train ML
+#       models with annotated examples, which is costly/time-consuming.
+#       In this paper, we present MELD (Mixture of Experts on Large Language Models for Data Preprocessing), a universal solver for lowresource DP. MELD adopts a Mixture-of-Experts (MoE) architecture
+#       that enables the amalgamation and enhancement of domain-speci!c
+#       experts trained on limited annotated examples. To!ne-tune MELD,
+#       we develop a suite of expert-tuning and MoE-tuning techniques, including a retrieval augmented generation (RAG) system, meta-path
+#       search for data augmentation, expert re!nement and router network training based on information bottleneck. To further verify the
+#       e"ectiveness of MELD, we theoretically prove that MoE in MELD
+#       is superior than a single expert and the router network is able to
+#       dispatch data to the right experts. Finally, we conducted extensive
+#       experiments on 19 datasets over 10 DP tasks to show that MELD
+#       outperforms the state-of-the-art methods in both e"ectiveness and
+#       e#ciency. More importantly, MELD is able to be! ne-tuned in a lowresource environment, e.g., a local, single and low-priced 3090 GPU.
+#       The codes, datasets and full version of the paper are available [1].
+#     """
+#     result = classifier.classify(content)
+#     print(result)

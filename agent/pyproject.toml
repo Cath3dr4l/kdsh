@@ -2,7 +2,7 @@
 name = "agent"
 version = "0.1.0"
 description = ""
-authors = ["Divyansh-Sharma-81 <div.sh81@gmail.com>"]
+authors = ["none"]
 readme = "README.md"
 packages = [{include = "agent"}]
 
@@ -27,6 +27,7 @@ unstructured-pytesseract = ">=0.3.13,<0.4.0"
 networkx = ">=3.4.2,<4.0.0"
 matplotlib = ">=3.10.0,<4.0.0"
 pypdf2 = {extras = ["full"], version = "^3.0.1"}
+fastapi = {extras = ["standard"], version = "^0.115.6"}
 
 
 [build-system]

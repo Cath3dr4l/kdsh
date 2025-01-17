@@ -45,7 +45,7 @@ class Mosambi:
     def __init__(self):
         self.tavily = tool
         self.client = ChatOpenAI(
-            model="gpt-4o-mini", temperature=0.3, max_tokens=1000
+            model="gpt-4o-mini", temperature=0, max_tokens=1000
         )  # Using LangChain's ChatOpenAI
 
     def retrieve(self, query: str):
@@ -96,6 +96,14 @@ Here are the search results related to the paper: \n
         return output_to_json(response.content)
 
 
+# if __name__ == "__main__":
+#     mosambi = Mosambi()
+#     content = """
+
+# """
+#     print(mosambi.classify(content))
+
+
 if __name__ == "__main__":
     mosambi = Mosambi()
 
@@ -105,34 +113,50 @@ if __name__ == "__main__":
     # List to store the content of the first 50 PDFs
     pdf_contents = []
 
-    # Iterate over the PDF files named P001.pdf to P050.pdf in the directory
-    for i in range(1, 51):
-        pdf_file = f"P{i:03}.pdf"
-        pdf_path = os.path.join(pdf_dir, pdf_file)
-        if os.path.exists(pdf_path):
-            print(f"Processing: {pdf_path}")
-            with open(pdf_path, "rb") as file:
-                reader = PyPDF2.PdfReader(file)
-                content = ""
-                for page_num in range(len(reader.pages)):
-                    page = reader.pages[page_num]
-                    content += page.extract_text()
-                pdf_contents.append({"file": pdf_file, "content": content})
+    import csv
+
+    # Read the output.csv file to get the PDF names and publishable status
+    csv_file = "output.csv"
+    with open(csv_file, mode="r") as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            pdf_file = f"{row['id']}.pdf"
+            pdf_path = os.path.join(pdf_dir, pdf_file)
+            if os.path.exists(pdf_path):
+                print(f"Processing: {pdf_path}")
+                with open(pdf_path, "rb") as pdf_file:
+                    reader = PyPDF2.PdfReader(pdf_file)
+                    content = ""
+                    for page_num in range(len(reader.pages)):
+                        page = reader.pages[page_num]
+                        content += page.extract_text()
+                    pdf_contents.append(
+                        {
+                            "file": row["id"],
+                            "content": content,
+                            "publishable": row["publishable"],
+                        }
+                    )
+
+    print(f"Total PDFs processed: {len(pdf_contents)}")
 
     # Classify the content of all the PDFs
     results = []
     for pdf in pdf_contents:
-        result = mosambi.classify(pdf["content"])
-
+        if pdf["publishable"] == "True" or pdf["publishable"] == True:
+            result = mosambi.classify(pdf["content"])
+        else:
+            result = {"conference": "na", "rationale": "na"}
         new_res = {
             "file": pdf["file"],
+            "publishable": pdf["publishable"],
             "conference": result["conference"],
             "rationale": result["rationale"],
         }
         results.append(new_res)
+        # Save the classification results to a csv file
+        import pandas as pd
 
-    # Save the classification results to a csv file
-    import pandas as pd
+        results_df = pd.DataFrame(results)
+        results_df.to_csv("classification_results.csv", index=False)
 
-    results_df = pd.DataFrame(results)
-    results_df.to_csv("classification_results.csv", index=False)
