@@ -68,6 +68,10 @@ The file [`api/main.py`](api/main.py:1) defines the web service.
 ### TACC (ToT Actor-Contrastive CoT Critic)
 
 The TACC architecture is designed for transparent and verifiable reasoning.
+<p align="center">
+  <img src="../architecture-diagrams/tacc_diagram.jpg" alt="TACC Architecture" width="700">
+</p>
+
 - **[`PaperEvaluator`](agent/services/paper_evaluator.py:77)**: This is the main class that orchestrates the evaluation. Its `evaluate_paper` method iteratively builds the reasoning tree.
 - **[`TreeOfThoughts`](agent/services/tree_of_thoughts.py:249)**: This class contains the core logic for the Tree of Thoughts framework.
     - **`generate_thoughts`**: This method acts as the **Actor**. It uses a faster, smaller LLM (`gpt-4o-mini`) to generate multiple potential reasoning steps (thoughts) based on the current analysis path. This allows for broad exploration of different analytical directions.
@@ -77,7 +81,20 @@ The TACC architecture is designed for transparent and verifiable reasoning.
 ### SCRIBE (Semantic Conference Recommendation with Intelligent Balanced Evaluation)
 
 The SCRIBE architecture is an ensemble of three specialized agents that "vote" on the best conference.
+<p align="center">
+  <img src="../architecture-diagrams/scribe_voting_agent_diagram.jpg" alt="SCRIBE Architecture" width="700">
+</p>
+
 - **[`LLMBasedClassifier`](agent/services/llm_based_classifier.py:41)**: This agent acts as a "Cookbook" expert. It uses a very detailed system prompt that encodes a knowledge base about the specific focus, scope, and common topics of each target conference. It makes its recommendation based on how well the paper's content aligns with this curated knowledge.
+  <p align="center">
+    <img src="../architecture-diagrams/cookbook_llm_diagram.jpg" alt="Cookbook LLM Architecture" width="500">
+  </p>
 - **[`RagBasedClassifier`](agent/services/rag_based_classifier.py:18)**: This agent provides data-driven recommendations. It takes the paper's content, queries the vector index created by the `indexer` service to find similar papers, and then uses the conference venues of those similar papers to inform its classification.
+  <p align="center">
+    <img src="../architecture-diagrams/hybrid_rag_diagram.jpg" alt="Pathway RAG Agent Architecture" width="500">
+  </p>
 - **[`SimilarityBasedClassifier`](agent/services/similarity_based_classifier.py:43)**: This agent leverages the vast external knowledge base of Semantic Scholar. It generates multiple search queries from the paper's content, queries the Semantic Scholar API, and retrieves a list of similar papers. It then analyzes the conference venues of the retrieved papers, using a logarithmic scoring function to mitigate the data imbalance often found in academic datasets (e.g., more papers from popular conferences).
+  <p align="center">
+    <img src="../architecture-diagrams/scholar_diagram.jpg" alt="SCHOLAR Agent Architecture" width="500">
+  </p>
 - **[`FinalClassifier`](agent/services/final_classifier.py:37)**: This class is the ensemble controller. It receives the outputs from the three classifiers. It then uses a final LLM call to synthesize these diverse inputs, weighing the evidence from the knowledge-based, data-driven, and external-similarity approaches to produce a final, robust recommendation with a detailed rationale. The asynchronous `classify` method runs all three classifiers concurrently for maximum efficiency.

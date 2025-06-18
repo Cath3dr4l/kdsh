@@ -64,7 +64,7 @@ Our first objective was to determine a paper's publishability. While a basic LLM
 - **Asynchronous Dual-LLM Dynamic**: The system uses `gpt-4o-mini` as a fast Actor for breadth and `gpt-4o` as a powerful Critic for depth. Implemented with Python's `asyncio` in [`agent/services/paper_evaluator.py`](agent/services/paper_evaluator.py:1), this allows for concurrent processing and high performance.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/divyansh-sharma/ARC2/main/assets/tacc-architecture.png" alt="TACC Architecture" width="700">
+  <img src="architecture-diagrams/tacc_diagram.jpg" alt="TACC Architecture" width="700">
 </p>
 
 ### SCRIBE: High-Precision Conference Matching
@@ -72,12 +72,24 @@ Our first objective was to determine a paper's publishability. While a basic LLM
 Conferences have thematic overlaps and severe data imbalances. A simple classifier would be hopelessly biased. **SCRIBE (Semantic Conference Recommendation with Intelligent Balanced Evaluation)** is our solution—a multi-agent ensemble where three specialized AI agents independently analyze a paper and "vote" on the best conference.
 
 - **Agent 1: The "Cookbook" LLM**: Uses a meticulously curated knowledge base to understand the unique academic identity of each conference. Implemented in [`agent/services/llm_based_classifier.py`](agent/services/llm_based_classifier.py:1).
+  <p align="center">
+    <img src="architecture-diagrams/cookbook_llm_diagram.jpg" alt="Cookbook LLM Architecture" width="500">
+  </p>
 - **Agent 2: The Pathway RAG Agent**: Grounded in historical data, this agent uses Pathway’s real-time data ingestion and advanced hybrid retrieval to provide data-driven recommendations. The RAG agent itself is in [`agent/services/rag_based_classifier.py`](agent/services/rag_based_classifier.py:1).
+  <p align="center">
+    <img src="architecture-diagrams/hybrid_rag_diagram.jpg" alt="Pathway RAG Agent Architecture" width="500">
+  </p>
 - **Agent 3: The SCHOLAR Agent**: Taps into the global academic research landscape via the Semantic Scholar API, using hierarchical query generation and a logarithmic scoring function to overcome data imbalance. Implemented in [`agent/services/similarity_based_classifier.py`](agent/services/similarity_based_classifier.py:1).
+  <p align="center">
+    <img src="architecture-diagrams/scholar_diagram.jpg" alt="SCHOLAR Agent Architecture" width="500">
+  </p>
 - **Ensemble Controller**: The [`FinalClassifier`](agent/services/final_classifier.py:37) analyzes the outputs from all three agents to make a reasoned final decision.
+  <p align="center">
+    <img src="architecture-diagrams/scribe_voting_agent_diagram.jpg" alt="SCRIBE Voting Agent Architecture" width="500">
+  </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/divyansh-sharma/ARC2/main/assets/scribe-architecture.png" alt="SCRIBE Architecture" width="700">
+  <img src="architecture-diagrams/scribe_voting_agent_diagram.jpg" alt="SCRIBE Architecture" width="700">
 </p>
 
 ## 🔬 Technical Deep Dive
