@@ -88,9 +88,9 @@ Conferences have thematic overlaps and severe data imbalances. A simple classifi
     <img src="architecture-diagrams/scribe_voting_agent_diagram.jpg" alt="SCRIBE Voting Agent Architecture" width="500">
   </p>
 
-<p align="center">
+<!-- <p align="center">
   <img src="architecture-diagrams/scribe_voting_agent_diagram.jpg" alt="SCRIBE Architecture" width="700">
-</p>
+</p> -->
 
 ## 🔬 Technical Deep Dive
 
@@ -145,6 +145,24 @@ The project is divided into four main components:
 - **`indexer/`**: A Pathway-based service that handles the indexing of embeddings for efficient storage and retrieval. It uses the Pathway Drive connector and Document Store for hybrid retrieval (BM25 + USearchKNN).
 - **`agent/`**: The core reasoning engine containing the TACC and SCRIBE implementations. It provides a FastAPI interface for evaluating and classifying research papers.
 - **`ksdh-webapp/`**: A Next.js T3 stack web application that provides a user interface for the services.
+
+## 📁 Directory Structure
+
+```
+.
+├── agent/                  # Core reasoning engine (TACC and SCRIBE)
+│   ├── api/                # FastAPI application
+│   ├── models/             # Pydantic schemas and configurations
+│   ├── services/           # TACC and SCRIBE implementation logic
+│   └── utils/              # Utility functions
+├── architecture-diagrams/  # Project architecture diagrams
+├── embedder/               # Modal-based sentence embedding service
+├── indexer/                # Pathway-based indexing service
+│   ├── services/           # Indexing and document store logic
+│   └── utils/              # Utility functions
+├── ksdh-webapp/            # Next.js frontend application
+└── README.md               # This file
+```
 
 ## ⚙️ Setup and Execution
 
