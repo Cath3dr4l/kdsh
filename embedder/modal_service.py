@@ -60,7 +60,7 @@ class Model:
 @app.local_entrypoint()
 async def main():
 
-    save_model.remote()  # Comment this line if the model has already been saved on the remote device
+    # save_model.remote()  # Comment this line if the model has already been saved on the remote device
     from fastapi import FastAPI
     from pydantic import BaseModel
 
