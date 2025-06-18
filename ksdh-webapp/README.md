@@ -1,29 +1,49 @@
-# Create T3 App
+# ARC2 Web Application
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+This is the frontend for the **ARC2 (Agentic AI Research Review and Conference Classification)** project, built with the [T3 Stack](https://create.t3.gg/).
 
-## What's next? How do I make an app with this?
+## 🚀 Overview
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+This Next.js application provides a user interface to interact with the ARC2 agent service. It allows users to upload research papers (in PDF format) or paste text content to:
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+-   **Evaluate Publishability**: Get a detailed analysis of the paper's strengths, weaknesses, and a publishability prediction.
+-   **Get Conference Recommendations**: Receive a recommendation for the most suitable conference (from a predefined list: CVPR, EMNLP, KDD, NeurIPS, TMLR).
+-   **Visualize Reasoning**: Explore the agent's Tree of Thoughts to understand its decision-making process.
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+## 🛠️ Tech Stack
 
-## Learn More
+-   [Next.js](https://nextjs.org)
+-   [React](https://reactjs.org/)
+-   [Tailwind CSS](https://tailwindcss.com)
+-   [tRPC](https://trpc.io)
+-   [Shadcn/ui](https://ui.shadcn.com/)
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+## ⚙️ Setup and Execution
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+### Prerequisites
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+-   Node.js and npm
+-   The [ARC2 Agent Service](../agent/README.md) must be running.
 
-## How do I deploy this?
+### Running the Application
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+1.  Navigate to the `ksdh-webapp` directory:
+    ```bash
+    cd ksdh-webapp
+    ```
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+3.  Run the development server:
+    ```bash
+    npm run dev
+    ```
+4.  Open [http://localhost:3000](http://localhost:3000) in your browser to view the application.
+
+## 🌐 Deployment
+
+This application is configured for easy deployment on platforms like Vercel or Netlify. Follow their respective deployment guides for Next.js applications.
+
+-   [Vercel Deployment Guide](https://create.t3.gg/en/deployment/vercel)
+-   [Netlify Deployment Guide](https://create.t3.gg/en/deployment/netlify)
