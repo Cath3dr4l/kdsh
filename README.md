@@ -6,9 +6,19 @@
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License">
 </p>
 
+<p align="center">
+  <img src="architecture-diagrams/ARC2_demo_GIF.gif" alt="ARC2 Architecture and UI Demo" width="800">
+</p>
+
 **ARC2 (Agentic AI Research Review and Conference Classification)** is a sophisticated AI paper reviewer designed to act as both a pre-submission shield and a strategic guide for researchers. It leverages agentic frameworks, advanced Retrieval-Augmented Generation (RAG), and the real-time power of the Pathway ecosystem to systematically analyze, critique, and reason about academic papers.
 
-**User Walkthrough:** [Live AI for Conference Classification and paper publishability prediction](https://youtu.be/8iiFVyNmkCY)
+### Demos and Resources
+- **Demo Videos**:
+  - [ARC2 Architecture + Demo video](https://www.youtube.com/watch?v=0X3H65sBCsg)
+  - [ARC2 Demo video | AI Paper Reviewer and Conference Recommender | Pathway Realtime & Live Systems](https://www.youtube.com/watch?v=tJkuu838Rn8)
+  - [User Walkthrough: Live AI for Conference Classification and paper publishability prediction](https://youtu.be/8iiFVyNmkCY)
+- **Blog Post**: [Building an AI Paper Reviewer with Agentic RAG](https://pathway.com/blog/ai-paper-reviewer/)
+- **Technical Report**: [ARC2.pdf](https://drive.google.com/file/d/1RgvO5TzbvvSahGFKQPu8nVA5Mr__oLeQ/view?usp=sharing)
 
 ---
 
@@ -155,12 +165,13 @@ The project is divided into four main components:
 │   ├── models/             # Pydantic schemas and configurations
 │   ├── services/           # TACC and SCRIBE implementation logic
 │   └── utils/              # Utility functions
-├── architecture-diagrams/  # Project architecture diagrams
+├── architecture-diagrams/  # Project architecture diagrams (including the demo GIF)
 ├── embedder/               # Modal-based sentence embedding service
 ├── indexer/                # Pathway-based indexing service
 │   ├── services/           # Indexing and document store logic
 │   └── utils/              # Utility functions
 ├── ksdh-webapp/            # Next.js frontend application
+├── LICENSE                 # MIT License
 └── README.md               # This file
 ```
 
@@ -286,12 +297,12 @@ The web application provides a user-friendly interface.
 
 - **Divyansh Sharma**: [LinkedIn](https://www.linkedin.com/in/divyanshsharma-/)
 - **Tasmay Pankaj Tibrewal**: [LinkedIn](https://www.linkedin.com/in/tasmay-tibrewal/)
-- **Tanush Agarwal**: [LinkedIn](https://www.linkedin.com/in/tanush-agarwal-2610/)
+- **Tanush Agarwal**: [LinkedIn](https://www.linkedin.com/in/tanush-agarwal-83893727a/)
 - **Shashwat Singh Ranka**: [LinkedIn](https://www.linkedin.com/in/shashwat-singh-ranka-7a168a259/)
 
 ## 📚 References
 
-- [Original Technical Report: ARC2.pdf](ARC2.pdf)
+- [Original Technical Report: ARC2.pdf](https://drive.google.com/file/d/1RgvO5TzbvvSahGFKQPu8nVA5Mr__oLeQ/view?usp=sharing)
 - [Pathway Developer Documentation](https://pathway.com/developers/docs/)
 - [Pathway's Ready-to-run App Templates](https://github.com/pathway-labs/app-templates)
 - [End-to-end Real-time RAG app with Pathway](https://github.com/pathway-labs/pathway-and-llms)
